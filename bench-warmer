@@ -4,6 +4,7 @@ use strict;
 use warnings FATAL => 'all';
 
 use IO::Socket::INET;
+use IO::Socket::UNIX;
 
 my $addr = $ARGV[0];
 my $prefix = $ARGV[1];
@@ -13,8 +14,9 @@ my $exptime = 0;
 
 die "bench-warmer addr prefix size count" unless $addr && $prefix && $size && $count;
 
-my $sock = IO::Socket::INET->new(PeerAddr => $addr,
-                                 Timeout  => 3);
+# my $sock = IO::Socket::INET->new(PeerAddr => $addr,
+#                                  Timeout  => 3);
+my $sock = IO::Socket::UNIX->new(Type => SOCK_STREAM(), Peer => $addr);
 die "$!\n" unless $sock;
 
 $|++;

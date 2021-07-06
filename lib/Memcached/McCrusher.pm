@@ -10,7 +10,7 @@ package Memcached::McCrusher;
 
 use warnings;
 use strict;
-use IO::Socket::INET;
+use IO::Socket::UNIX;
 
 use POSIX ":sys_wait_h";
 
@@ -40,23 +40,30 @@ sub start_memcached {
     my $ip   = $self->{server_ip};
     my $port = $self->{server_port};
 
+    my $unix_socket = $self->{unix_socket};
+
     # TODO: unix domain sockets
-    $args .= " -l $ip -p $port";
+    # $args .= " -l $ip -p $port";
 
     my $child = fork();
 
+    # print "$unix_socket";
     if ($child) {
         print "$bin $args\n";
         $self->{server_pid} = $child;
         sleep 1;
-        for (1 .. 60) {
-            my $conn = IO::Socket::INET->new(PeerAddr => "$ip:$port");
+        for (1 .. 100) {
+            # my $conn = IO::Socket::INET->new(PeerAddr => "$ip:$port");
+	    my $conn = IO::Socket::UNIX->new(Type => SOCK_STREAM(), Peer => "$unix_socket");
             if ($conn) {
                 $self->{server_conn} = $conn;
                 return $conn;
             }
+	    # print "$ip:$port\n";
+	    print "conn:$conn\n";
             sleep 1;
         }
+	# print "$self->{server_conn}\n";
     } else {
         # child
         exec "$bin $args";
@@ -103,6 +110,8 @@ sub warm {
     my $data = 'x' x $s;
 
     for ($t .. $c) {
+	# print "$self->{server_conn}\n";
+	# print "$sock, $p${_}, $f, $e, $s, $data\n";
         print $sock "set $p${_} $f $e $s noreply\r\n", $data, "\r\n";
         print "warm: $_\n" if ($_ % int($c / 10) == 0);
         $cb->($_) if ($cb);
@@ -144,9 +153,9 @@ sub start_crush {
     my $child = fork();
 
     if ($child) {
-        print "$bin --conf $cfile --ip $ip --port $port\n";
+        # print "$bin --conf $cfile --ip $ip --port $port\n";
         # TODO: option
-        #print "$bin --conf $cfile --sock /tmp/memcached.sock\n";
+        print "$bin --conf $cfile --sock /tmp/memcached.sock\n";
         $self->{crush_pid} = $child;
         # try to open output file in loop
         # watch for "done initializing\n"
@@ -170,9 +179,9 @@ sub start_crush {
         # NOTE: If the child doesn't autoflush STDOUT, it can get lost :|
         open(STDOUT, ">", $cout) or die "STDOUT -> $cout: $!";
         open(STDERR, ">&STDOUT", ) or die "STDERR -> STDOUT: $!";
-        exec "$bin --conf $cfile --ip $ip --port $port";
+        #exec "$bin --conf $cfile --ip $ip --port $port";
         # TODO: option
-        #exec "$bin --conf $cfile --sock /tmp/memcached.sock";
+        exec "$bin --conf $cfile --sock /tmp/memcached.sock";
     }
 }
 
@@ -209,7 +218,9 @@ sub make_crush_config {
 sub sample_args {
     my $self = shift;
     my %a = @_;
-    $self->{sample_args} = $self->{server_ip} . ':' . $self->{server_port}
+    #$self->{sample_args} = $self->{server_ip} . ':' . $self->{server_port}
+    #. ' ' . join(' ', $a{runs}, $a{period}, @{$a{stats}});
+    $self->{sample_args} = $self->{unix_socket}
         . ' ' . join(' ', $a{runs}, $a{period}, @{$a{stats}});
 }
 
@@ -241,8 +252,9 @@ sub start_sample {
 sub latency_args {
     my $self = shift;
     my %a = @_;
-    my $args = "--server " . $self->{server_ip} .
-               " --port " . $self->{server_port};
+    # my $args = "--server " . $self->{server_ip} .
+    #" --port " . $self->{server_port};
+    my $args = "--server " . $self->{unix_socket};
     for my $key (keys %a) {
         $args .= " --$key " . $a{$key};
         chop $args if $a{$key} eq 'unset';

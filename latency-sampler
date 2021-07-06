@@ -35,7 +35,7 @@ my $server = '127.0.0.1';
 my $port = '11211';
 my $prefix = 'foo';
 my $key_max = 5000;
-my $random = 0;
+my $random = 0.1;
 my $dump_rate = 3;
 my $pace_time = 1000; # microseconds
 
@@ -107,8 +107,9 @@ sub pace {
 }
 
 # Build a dumpable histogram
-my $sock = IO::Socket::INET->new(PeerAddr => "$server:$port",
-    Timeout => 4);
+# my $sock = IO::Socket::INET->new(PeerAddr => "$server:$port",
+# 				 Timeout => 4);
+my $sock = IO::Socket::UNIX->new(Type => SOCK_STREAM(), Peer => "$server");
 die "$server:$port $!" unless $sock;
 
 for (0..$max_bucket) {

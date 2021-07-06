@@ -4,7 +4,7 @@
 # This file is left as an example for running a series of tests with
 # mc-crusher using the perl library.
 # need to up nofile in /etc/security/limits.conf (65536)
-
+# push ( @INC,"../lib");
 use strict;
 use warnings;
 use FindBin qw($Bin);
@@ -19,18 +19,18 @@ unless ($TEST_TYPE =~ m/^(dram|mm|pmem)$/) {
     die "supply test type: dram/mm/pmem";
 }
 
-my $crush_dir = '/home/dormando/mc/mc-crusher/';
-my $out_dir = '/home/dormando/output/';
+my $crush_dir = '/root/xiao/mc-crusher/';
+my $out_dir = '/root/xiao/mc-crusher/output/';
 my $key_blob_path = '/tmp/keyblob/';
 
 # settings
 my $server_args;
 if ($TEST_TYPE eq 'dram') {
-    $server_args = '-l 127.0.0.1 -t 48 -c 48000 -m 70000 -o no_lru_crawler -b 4096 -s /tmp/memcached.sock';
+    $server_args = '-l 127.0.0.1 -t 48 -c 48000 -m 70000 -o no_lru_crawler -b 4096 -u root -s /tmp/memcached.sock -a 755';
 } elsif ($TEST_TYPE eq 'pmem') {
-    $server_args = '-l 127.0.0.1 -t 48 -c 48000 -m 600000 -o no_lru_crawler -b 4096 -s /tmp/memcached.sock -e /pmem/mc/memc_mmap';
+    $server_args = '-l 127.0.0.1 -t 48 -c 48000 -m 400000 -o no_lru_crawler -b 4096 -e /mnt/pmem0/memc_mmap -u root -s /tmp/memcached.sock';
 } elsif ($TEST_TYPE eq 'mm') {
-    $server_args = '-l 127.0.0.1 -t 48 -c 48000 -m 600000 -o no_lru_crawler -b 4096 -s /tmp/memcached.sock';
+    $server_args = '-l 127.0.0.1 -t 48 -c 48000 -m 600000 -o no_lru_crawler -b 4096 -u root';
 }
 my $key_count = 125_000_000;
 # reserving 24 (and its HT sibling 72) for latency tester.
@@ -39,12 +39,13 @@ my $numa_pfx = '/usr/bin/numactl --cpunodebind=1 --membind=1 --physcpubind=25-47
 # FIXME: only require mc-crusher directory?
 my $bench = Memcached::McCrusher->new(
     server_args => $server_args,
-    server_bin => '/usr/bin/numactl --cpunodebind=0 --membind=0 /home/dormando/mc/memcached/memcached',
+    server_bin => 'numactl --cpunodebind=0 --membind=0 memcached',
     crush_bin => $numa_pfx . $crush_dir . 'mc-crusher',
     balloon_bin => $numa_pfx . $crush_dir . 'balloon',
     latency_bin => '/usr/bin/numactl --cpunodebind=1 --membind=1 --physcpubind=24 ' . $crush_dir . 'latency-sampler',
     sample_bin => $crush_dir . 'bench-sample',
     output_dir => $out_dir,
+    unix_socket => '/tmp/memcached.sock',
 );
 
 # was period 4. shortening the test duration.

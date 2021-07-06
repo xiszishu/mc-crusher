@@ -5,6 +5,7 @@
 use warnings;
 use strict;
 use IO::Socket::INET;
+use IO::Socket::UNIX;
 use Time::HiRes;
 
 $|++;
@@ -71,5 +72,5 @@ sub mc_info {
 }
 
 sub connect_to {
-    return IO::Socket::INET->new(PeerAddr => $_[0], Timeout => 3);
+    return IO::Socket::UNIX->new(Type => SOCK_STREAM(), Peer => $_[0]);
 }

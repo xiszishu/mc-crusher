@@ -155,7 +155,7 @@ sub start_crush {
     if ($child) {
         # print "$bin --conf $cfile --ip $ip --port $port\n";
         # TODO: option
-        print "$bin --conf $cfile --sock /tmp/memcached.sock\n";
+        print "$bin --conf $cfile --sock /var/run/memcached.sock\n";
         $self->{crush_pid} = $child;
         # try to open output file in loop
         # watch for "done initializing\n"
@@ -181,7 +181,7 @@ sub start_crush {
         open(STDERR, ">&STDOUT", ) or die "STDERR -> STDOUT: $!";
         #exec "$bin --conf $cfile --ip $ip --port $port";
         # TODO: option
-        exec "$bin --conf $cfile --sock /tmp/memcached.sock";
+        exec "$bin --conf $cfile --sock /var/run/memcached.sock";
     }
 }
 

@@ -15,7 +15,7 @@ $|++;
 
 my $TEST_TYPE = $ARGV[0] or die "supply test type: dram/mm/pmem";
 
-unless ($TEST_TYPE =~ m/^(dram|mm|pmem)$/) {
+unless ($TEST_TYPE =~ m/^(dram|mm|pmem_local|pmem_remote)$/) {
     die "supply test type: dram/mm/pmem";
 }
 
@@ -27,22 +27,24 @@ my $key_blob_path = '/tmp/keyblob/';
 my $server_args;
 if ($TEST_TYPE eq 'dram') {
     $server_args = '-l 127.0.0.1 -t 48 -c 48000 -m 70000 -o no_lru_crawler -b 4096 -u root -s /var/run/memcached.sock -a 755';
-} elsif ($TEST_TYPE eq 'pmem') {
-    $server_args = '-l 127.0.0.1 -t 48 -c 48000 -m 400000 -o no_lru_crawler -b 4096 -e /mnt/pmem0/memc_mmap -u root -s /var/run/memcached.sock';
+} elsif ($TEST_TYPE eq 'pmem_local') {
+    $server_args = '-l 127.0.0.1 -t 12 -c 48000 -m 400000 -o no_lru_crawler -b 4096 -e /mnt/pmem1/memc_mmap -u root -s /var/run/memcached.sock';
+} elsif ($TEST_TYPE eq 'pmem_remote') {
+    $server_args = '-l 127.0.0.1 -t 12 -c 48000 -m 400000 -o no_lru_crawler -b 4096 -e /mnt/pmem0/memc_mmap -u root -s /var/run/memcached.sock';
 } elsif ($TEST_TYPE eq 'mm') {
     $server_args = '-l 127.0.0.1 -t 48 -c 48000 -m 600000 -o no_lru_crawler -b 4096 -u root';
 }
 my $key_count = 125_000_000;
 # reserving 24 (and its HT sibling 72) for latency tester.
-my $numa_pfx = '/usr/bin/numactl --cpunodebind=1 --membind=1 --physcpubind=25-47,73-95 ';
+my $numa_pfx = '/usr/bin/numactl --cpunodebind=1 --membind=1';
 
 # FIXME: only require mc-crusher directory?
 my $bench = Memcached::McCrusher->new(
     server_args => $server_args,
-    server_bin => 'numactl --cpunodebind=0 --membind=0 memcached',
+    server_bin => 'numactl --cpunodebind=1 --membind=1 memcached',
     crush_bin => $numa_pfx . $crush_dir . 'mc-crusher',
     balloon_bin => $numa_pfx . $crush_dir . 'balloon',
-    latency_bin => '/usr/bin/numactl --cpunodebind=1 --membind=1 --physcpubind=24 ' . $crush_dir . 'latency-sampler',
+    latency_bin => '/usr/bin/numactl --cpunodebind=1 --membind=1' . $crush_dir . 'latency-sampler',
     sample_bin => $crush_dir . 'bench-sample',
     output_dir => $out_dir,
     unix_socket => '/var/run/memcached.sock',
@@ -62,12 +64,12 @@ $bench->sample_args(
     my $devline;
     my $type;
     my @tests = ();
-    my $thr_max = 25; # 40
+    my $thr_max = 6; # 40
     my $thr_step = 1; # 2
     my $threads = 0;
     my $value_size = 256;
     my $key_prefix = 'foobarbazqux';
-    my $server_threads = 48;
+    my $server_threads = 12;
 
     my $mget_conf = {
         send => 'ascii_mget',
